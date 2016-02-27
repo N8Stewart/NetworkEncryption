@@ -1,0 +1,9 @@
+# ignore temporary files
+*.DS_Store
+*.swp
+*.out
+
+# ignore the temporary staging area
+temp/*
+__pycache__
+
