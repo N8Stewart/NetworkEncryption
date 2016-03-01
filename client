@@ -19,7 +19,10 @@ import errno
 import constants
 
 def prompt() :
-	sys.stdout.write('<me> ')
+	if name is not None :
+		sys.stdout.write(name + ">> ")
+	else :
+		sys.stdout.write(constants.DEFAULT_SHELL + ">> ")
 	sys.stdout.flush()
 
 def connect(ip, port) :
@@ -38,18 +41,19 @@ def connect(ip, port) :
 		return {'code':1, 'conn':None}
 
 if __name__ != "__main__" :
-	print ("Server cannot be embeded.")
+	print ("Client cannot be embeded.")
 	sys.exit(1)
 
 # A list of the connections with the server
 READ_CONNECTIONS = [sys.stdin]
 conn = None
-
+name = None
 # Wrap interrupt detection
 try:
 	message = ""
 	# Loop until /quit command is received
 	while True :
+		prompt()
 		# Figure out what command was sent and act accordingly
 		# get sockets which are ready to be read
 		sck_read,sck_write,sck_err = select.select(READ_CONNECTIONS,[],[])
@@ -104,6 +108,11 @@ try:
 						conn = None
 					else :
 						print ("You are not currently connected to a server.")
+				elif (message.split()[0] == "/setname") :
+					if len(message.split()) == 2 :
+						name = message.split()[1]
+					else :
+						name = None
 				else :
 					if conn is not None :
 						conn.send(message.encode())
@@ -115,3 +124,4 @@ except KeyboardInterrupt:
 
 print ("Goodbye.")
 sys.exit()
+
