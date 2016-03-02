@@ -74,9 +74,9 @@ try :
                 newSock, newAddr = server_socket.accept()
                 CONNECTIONS.append(newSock)
                 newUID = randint(1000,9999)
-                newClient = client(newUID, "Guest" + newUID, newAddr, None)
+                newClient = client(newUID, "Guest" + `newUID`, newAddr, None)
                 CLIENTS.append(newClient)
-                print ("Client (%s:%s) connected" % newAddr + " | Assigned uid=" + newUID)
+                print ("Client (%s:%s) connected" % newAddr + " | Assigned uid=" + `newUID`)
             # some incoming message from a client
             else :    
                 # data recieved from client, process it
