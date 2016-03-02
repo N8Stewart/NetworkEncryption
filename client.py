@@ -23,7 +23,7 @@ def prompt() :
     if name is not None :
         outputName = outputName + name
     else :
-        outputName = outputName + constants.DEFAULT_SHELL
+        outputName = outputName + constants.DEFAULT_PROMPT
     outputName = outputName + ">"
     sys.stdout.write(outputName)
     sys.stdout.flush()
@@ -106,13 +106,17 @@ try:
                 elif (message == "/disconnect") :
                     if conn is not None :
                         READ_CONNECTIONS.remove(conn)
-                        conn.close();
+                        conn.close()
                         conn = None
                     else :
                         print ("You are not currently connected to a server.")
                 elif (message.split()[0] == "/setname") :
                     if len(message.split()) == 2 :
-                        name = message.split()[1]
+                        tempName = message.split()[1]
+						if len(tempName) >= USERNAME_LENGTH_MIN and len(tempName) <= USERNAME_LENGTH_MAX :
+							name = tempName
+						else :
+							print ("Username must be between " + USERNAME_LENGTH_MIN + " and " + USERNAME_LENGTH_MAX " characters long.")
                     else :
                         name = None
                 else :

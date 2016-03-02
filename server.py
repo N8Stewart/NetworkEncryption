@@ -73,12 +73,12 @@ try :
                 # Handle the case in which there is a new connection recieved through server_socket
                 newSock, newAddr = server_socket.accept()
                 CONNECTIONS.append(newSock)
-                newUID = randint(1000,9999)
+                newUID = randint(10**constants.UID_LENGTH, 10**(constants.UID_LENGTH + 1) - 1)
                 newClient = client(newUID, "Guest" + `newUID`, newAddr, None)
                 CLIENTS.append(newClient)
                 print ("Client (%s:%s) connected" % newAddr + " | Assigned uid=" + `newUID`)
             # some incoming message from a client
-            else :    
+            else :
                 # data recieved from client, process it
                 data = sock.recv(constants.BUFFER_SIZE).decode()
                 if data:

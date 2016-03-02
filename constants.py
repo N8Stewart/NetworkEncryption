@@ -9,6 +9,12 @@ HOST = ''
 # Port number that server will be listening on
 DEFAULT_PORT = 5989
 # Name of the shell when no connection is established
-DEFAULT_SHELL = "NEC"
+DEFAULT_PROMPT = "You"
 # Constant buffer size to use when reading and writing to buffer
 BUFFER_SIZE = 512
+# Max and min size of the username
+USERNAME_MIN = 4
+USERNAME_MAX = 16
+# Length of the UID (min:10^(UID_LENGTH) | max:1-^(UID_LENGTH + 1) - 1)
+UID_LENGTH = 8 
+
