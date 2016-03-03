@@ -15,6 +15,13 @@ BUFFER_SIZE = 512
 # Max and min size of the username
 USERNAME_LENGTH_MIN = 4
 USERNAME_LENGTH_MAX = 16
-# Length of the UID (min:10^(UID_LENGTH) | max:1-^(UID_LENGTH + 1) - 1)
+# Length of the UID (min:10^(UID_LENGTH) | max:10^(UID_LENGTH + 1) - 1)
 UID_LENGTH = 8 
+
+# **** Flags for message headers ****
+FLAG_KEY_XCG = 1
+FLAG_UID = 2
+FLAG_MESSAGE = 3
+FLAG_CONNECT = 4
+FLAG_DISCONNECT = 5
 
