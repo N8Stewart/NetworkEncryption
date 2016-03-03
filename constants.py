@@ -13,8 +13,8 @@ DEFAULT_PROMPT = "You"
 # Constant buffer size to use when reading and writing to buffer
 BUFFER_SIZE = 512
 # Max and min size of the username
-USERNAME_MIN = 4
-USERNAME_MAX = 16
+USERNAME_LENGTH_MIN = 4
+USERNAME_LENGTH_MAX = 16
 # Length of the UID (min:10^(UID_LENGTH) | max:1-^(UID_LENGTH + 1) - 1)
 UID_LENGTH = 8 
 
