@@ -59,6 +59,7 @@ def pack(flag, uid, message) :
 
 # Unpack the byte object retrieved from the socket. Analyze the flag and perform a different action depending on what it is
 def unpack(conn, packet) :
+    print (packet)
     flag = int.from_bytes(packet[:1], byteorder='big')
     numBytes = len(packet)
     message = packet[1:numBytes-1].decode()

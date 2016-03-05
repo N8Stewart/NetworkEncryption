@@ -37,6 +37,7 @@ def unpack(packet) :
         symKey = message 
     elif flag == constants.FLAG_UID :
         UID = message
+        print (UID)
     elif flag == constants.FLAG_DISCONNECT :
         sys.stdout.write("\r" + '<' + message + '> has disconnected from chat.')
     elif flag == constants.FLAG_CONNECT :
@@ -114,11 +115,7 @@ try:
             # message from server
             if (sock == conn) :
                 data = sock.recv(constants.BUFFER_SIZE)
-                if not data : # disconnected from server
-                    if sock == conn :
-                        print ("Disconnected from server.")
-                        disconnect()
-                else :
+                if data : # disconnected from server
                     unpack(data)
             # User entered message
             else :
@@ -139,7 +136,7 @@ try:
                     else : # connection has been established
                         conn = connection['conn']
                         READ_CONNECTIONS.append(conn)
-                        
+                        conn.send(pack(constants.FLAG_KEY_XCG, publicKey))
                 elif (message == "/quit") :
                     if conn is not None :
                         conn.send(pack(constants.FLAG_DISCONNECT, None)) 
