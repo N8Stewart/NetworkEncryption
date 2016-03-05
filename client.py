@@ -148,12 +148,10 @@ try:
                     quit = 1
                     break
                 elif (message == "/help") :
-                    print()
-                    print ("/connect <ip/hostname> : connect to a server running at the provided ip/hostname")
+                    print ("\n/connect <ip/hostname> : connect to a server running at the provided ip/hostname")
                     print ("/disconnect : disconnect from a server without exiting the NEC")
                     print ("/quit : quit the NEC")
-                    print ("/setname <name> : Set your name to something other than the default.")
-                    print()
+                    print ("/setname <name> : Set your name to something other than the default.\n")
                 elif (message == "/disconnect") :
                     if conn is not None :
                         disconnect()
