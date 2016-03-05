@@ -40,6 +40,51 @@ def broadcast (message) :
                 del CLIENTS[CONNECTIONS.index(sock)]
                 CONNECTIONS.remove(sock)
 
+# Pack the flag, uid, and message inside a packet. Return this byte object to the caller to be sent across the network
+# Encrypt the message only after the user has supplied their public key
+def pack(flag, uid, message) :
+    if flag == constants.FLAG_CONNECT or flag == constants.FLAG_DISCONNECT :
+        packet = b''.join([flag.to_bytes(1, byteorder='big'),
+                uid.encode()])
+    elif flag == constants.FLAG_KEY_XCG or flag == constants.FLAG_UID :
+        packet = b''.join([flag.to_bytes(1, byteorder='big'),
+                message.encode()])
+    elif flag == constants.FLAG_MESSAGE :
+        packet = b''.join([flag.to_bytes(1, byteorder='big'),
+                uid.encode(),
+                message.encode()])
+    else :
+        raise ValueError('Cannot pack message. Invalid flag: ' + str(flag))
+    return packet
+
+# Unpack the byte object retrieved from the socket. Analyze the flag and perform a different action depending on what it is
+def unpack(conn, packet) :
+    flag = int.from_bytes(packet[:1], byteorder='big')
+    numBytes = len(packet)
+    message = packet[1:numBytes-1].decode()
+    # Grab the user information of whoever sent the packet
+    client = CLIENTS[CONNECTIONS.index(conn)]
+    if flag == constants.FLAG_KEY_XCG : # Send the symmetric key to the user
+        packet = b''.join([flag.to_bytes(1, byteorder='big'), message.encode()])
+        # Store users public key and send the symmetric key and the user's unique id
+        client.publicKey = message
+        conn.send(pack(constants.FLAG_KEY_XCG, None, SYM_KEY))
+        conn.send(pack(constants.FLAG_UID, None, client.uid))
+        broadcast(pack(constants.FLAG_CONNECT, client.uid, None))
+    elif flag == constants.FLAG_MESSAGE :
+        uid = message[:constants.UID_LENGTH-1]
+        message = packet[constants.UID_LENGTH:len(message)-1]
+        sys.stdout.write("\r" + '<' + uid + '> ' + message)
+        broadcast(pack(constants.FLAG_MESSAGE, uid, message))
+    elif flag == constants.FLAG_DISCONNECT :
+        uid = message
+        sys.stdout.write("\r" + '<' + uid + '> disconnected')
+        del CLIENTS[CONNECTIONS.index(conn)]
+        CONNECTIONS.remove(conn)
+        broadcast(pack(FLAG_DISCONNECT, uid, None))
+    else :
+        raise ValueError('Cannot unpack packet. Packet may have been corrupted. Invalid flag: ' + str(flag))
+
 if __name__ != "__main__" :
     print ("Server cannot be embeded.")
     sys.exit(1)
@@ -48,6 +93,8 @@ if __name__ != "__main__" :
 CONNECTIONS = []
 # A list of the clients currently connected to the server, indexed to match the read_connections
 CLIENTS = []
+# The symmetric key generated every time the server opens up
+SYM_KEY = "1234567890"
 
 # wrap interrupt detection
 try :
@@ -74,9 +121,9 @@ try :
                 newSock, newAddr = server_socket.accept()
                 CONNECTIONS.append(newSock)
                 newUID = randint(10**constants.UID_LENGTH, 10**(constants.UID_LENGTH + 1) - 1)
-                newClient = client(newUID, "Guest" + `newUID`, newAddr, None)
+                newClient = client(newUID, "Guest" + str(newUID), newAddr, None)
                 CLIENTS.append(newClient)
-                print ("Client (%s:%s) connected" % newAddr + " | Assigned uid=" + `newUID`)
+                print ("Client (%s:%s) connected" % newAddr + " | Assigned uid=" + str(newUID))
             # some incoming message from a client
             else :
                 # data recieved from client, process it

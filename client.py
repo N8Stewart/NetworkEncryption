@@ -31,9 +31,8 @@ def prompt() :
 
 # Unpack the byte object retrieved from the socket. Analyze the flag and perform a different action depending on what it is
 def unpack(packet) :
-    flag = int.from_bytes(data[:1], byteorder='big')
-    numBytes = len(packet)
-    message = data[1:numBytes-1].decode()
+    flag = int.from_bytes(packet[:1], byteorder='big')
+    message = packet[1:len(packet)-1].decode()
     if flag == constants.FLAG_KEY_XCG :
         symKey = message 
     elif flag == constants.FLAG_UID :
@@ -43,8 +42,8 @@ def unpack(packet) :
     elif flag == constants.FLAG_CONNECT :
         sys.stdout.write("\r" + '<' + message + '> has connected to chat.')
     elif flag == constants.FLAG_MESSAGE :
-        uid = message[1:UID_LENGTH]
-        message = message[UID_LENGTH:numBytes-1]
+        uid = message[:constants.UID_LENGTH-1]
+        message = message[constants.UID_LENGTH:len(message)-1]
         sys.stdout.write("\r" + '<' + uid + '> ' + message)
     else :
         raise ValueError('Cannot unpack packet. Packet may have been corrupted. Invalid flag: ' + str(flag))
@@ -68,10 +67,11 @@ def pack(flag, message) :
 
 # Common disconnect steps when disconnecting from the server
 def disconnect() :
-    conn.send(pack(constants.FLAG_DISCONNECT, None)) 
     READ_CONNECTIONS.remove(conn)
     conn.close();
     conn = None
+    uid = None
+    symKey = None
 
 # Steps to connect to the ip:port combination provided
 def connect(ip, port) :
@@ -117,9 +117,7 @@ try:
                 if not data : # disconnected from server
                     if sock == conn :
                         print ("Disconnected from server.")
-                        READ_CONNECTIONS.remove(conn)
-                        conn.close();
-                        conn = None
+                        disconnect()
                 else :
                     unpack(data)
             # User entered message
@@ -144,6 +142,7 @@ try:
                         
                 elif (message == "/quit") :
                     if conn is not None :
+                        conn.send(pack(constants.FLAG_DISCONNECT, None)) 
                         disconnect()
                     quit = 1
                     break
@@ -154,6 +153,7 @@ try:
                     print ("/setname <name> : Set your name to something other than the default.\n")
                 elif (message == "/disconnect") :
                     if conn is not None :
+                        conn.send(pack(constants.FLAG_DISCONNECT, None)) 
                         disconnect()
                     else :
                         print ("You are not currently connected to a server.")
