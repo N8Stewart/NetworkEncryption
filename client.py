@@ -1,177 +1,161 @@
-#!/usr/local/python-3.2.3/bin/python3.2
-
 # Nate Stewart
 # 02/27/16
 # Network Encryption Client
 
-# Import the functionality for socket connections
-import socket, select
-# needed to assess if the connection to the server was refused
-from socket import error as socket_error
-# import needed functions from sys such as sys.exit() and sys.argv()
-import sys
-import time
-# import needed functions from os to create 'recv' directory
-import os
-# check the error number of invalid connection 
-import errno
+import socket, select, string, sys
 # Import constants file
 import constants
+# Used in packing the packets
+import struct
 
-# A simple prompt written/flushed into stdout
-def prompt() :
-    outputName = "<"
-    if name is not None :
-        outputName = outputName + name
-    else :
-        outputName = outputName + constants.DEFAULT_PROMPT
-    outputName = outputName + ">"
-    sys.stdout.write(outputName)
-    sys.stdout.flush()
+# Declare the global variables
+UID = None
+PUB_KEY = "8888888888"
+SYM_KEY = None
 
-# Unpack the byte object retrieved from the socket. Analyze the flag and perform a different action depending on what it is
-def unpack(packet) :
-    flag = int.from_bytes(packet[:1], byteorder='big')
-    message = packet[1:len(packet)-1].decode()
-    if flag == constants.FLAG_KEY_XCG :
-        symKey = message 
-    elif flag == constants.FLAG_UID :
-        UID = message
-        print (UID)
-    elif flag == constants.FLAG_DISCONNECT :
-        sys.stdout.write("\r" + '<' + message + '> has disconnected from chat.')
-    elif flag == constants.FLAG_CONNECT :
-        sys.stdout.write("\r" + '<' + message + '> has connected to chat.')
-    elif flag == constants.FLAG_MESSAGE :
-        uid = message[:constants.UID_LENGTH-1]
-        message = message[constants.UID_LENGTH:len(message)-1]
-        sys.stdout.write("\r" + '<' + uid + '> ' + message)
-    else :
-        raise ValueError('Cannot unpack packet. Packet may have been corrupted. Invalid flag: ' + str(flag))
-
-# Pack the flag, uid, and message inside a packet. Return this byte object to the caller to be sent across the network
-# If a symmetric key is available, encrypt the uid and message before joining them with the plaintext flag
+# Client pack method. 
+# Key exchange : uid = none, message = none
+# Disconnect   : uid = uid, message = none
+# Message      : uid = uid, message = message
 def pack(flag, message) :
-    if flag == constants.FLAG_KEY_XCG : # Send the server my public key
-        packet = b''.join([flag.to_bytes(1, byteorder='big'),
-                message.encode()])
+    global UID
+    global PUB_KEY
+    packet = struct.pack(">I", flag)
+    if flag == constants.FLAG_KEY_XCG :
+        packet = packet + PUB_KEY.encode()
     elif flag == constants.FLAG_DISCONNECT :
-        packet = b''.join([flag.to_bytes(1, byteorder='big'),
-                UID.encode()])
+        packet = packet + UID.encode()
     elif flag == constants.FLAG_MESSAGE :
-        packet = b''.join([flag.to_bytes(1, byteorder='big'),
-                UID.encode(),
-                message.encode()])
+        packet = packet + UID.encode() + message.encode()
     else :
         raise ValueError('Cannot pack message. Invalid flag: ' + str(flag))
     return packet
 
-# Common disconnect steps when disconnecting from the server
-def disconnect() :
-    READ_CONNECTIONS.remove(conn)
-    conn.close();
-    conn = None
-    uid = None
-    symKey = None
+#Client unpack method.
+# Key exchange : global UID is set, global SYM_KEY is set
+# Connect      : connection message output to stdout
+# Disconnect   : disconnection message output to stdout
+# Message      : message output to stdout
+def unpack(conn, packet) :
+    global UID
+    global SYM_KEY
+    flag, = struct.unpack(">I", packet[0:4])
+    message = packet[4:len(packet)]
+    #print "packet: %s" % packet + " with flag: %s" % flag + " results in message: %s" % message
+    if flag == constants.FLAG_KEY_XCG :
+        UID = message[0:constants.UID_LENGTH]
+        SYM_KEY = message[constants.UID_LENGTH:len(message)]
+    elif flag == constants.FLAG_CONNECT :
+        puid = message[0:constants.UID_LENGTH]
+        message = "\r" + "<%s> " % puid + " has connected to the chat.\n"
+        output(message)
+    elif flag == constants.FLAG_DISCONNECT :
+        puid = message[0:constants.UID_LENGTH]
+        message = "\r" + "<%s> " % puid + " has disconnected from the chat.\n"
+        output(message)
+    elif flag == constants.FLAG_MESSAGE :
+        puid = message[0:constants.UID_LENGTH]
+        message = "\r" + "<%s> " % puid + message[constants.UID_LENGTH:len(message)]
+        output(message)
+    elif flag == constants.FLAG_SERVER_TERMINATION :
+        conn.close()
+        print '\nChat server has terminated.'
+        sys.exit()
+    else :
+        raise ValueError('Cannot unpack packet. Packet may have been corrupted. Invalid flag: %s' % str(flag))
 
-# Steps to connect to the ip:port combination provided
-def connect(ip, port) :
-    # setup a socket and connect to the host and port provided by the user
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(2)
-    # ensure the socket can be created
+# Output message to the console and reprint the prompt
+def output(message) :
+    sys.stdout.write(message)
+    prompt()
+    
+# Send the message to the socket and reprint the prompt
+def send(socket, message) :
     try :
-        s.connect((ip, port))
-        return {"code":0, "conn":s}
-    except socket_error as e :
-        # if e.errno doesn't equal 'connection refused', reraise the error 
-        if e.errno != errno.ECONNREFUSED :
-            raise e
-        print ("Unable to connect to " + ip + " at port " + str(port))
-        return {'code':1, 'conn':None}
+        socket.send(message)
+    except :
+        # broken socket connection. output disconnect message and exit
+        socket.close()
+        print '\nYou have been disconnected from the chat server.'
+        sys.exit()
+    
 
+# Print the prompt and flush the stream
+def prompt() :
+    sys.stdout.write('<%s> ' % constants.DEFAULT_PROMPT)
+    sys.stdout.flush()
+ 
+# Prevent the client from being started from an embed.
 if __name__ != "__main__" :
     print ("Client cannot be embeded.")
     sys.exit(1)
 
-# A list of the connections with the server
-READ_CONNECTIONS = [sys.stdin]
-conn = None
-name = None
-publicKey = '1234567890'
-symKey = None
-UID = None
-quit = 0
+# Grab host and port
+if(len(sys.argv) < 2) :
+    print 'Usage:\tpython client.py hostname [port]'
+    sys.exit()
+elif len(sys.argv) == 2 :
+    port = constants.DEFAULT_PORT
+else :
+    port = int(sys.argv[2])
+host = sys.argv[1]
 
-# Wrap interrupt detection
-try:
-    # Loop until /quit command is received
-    while quit == 0 :
-        prompt()
-        # Figure out what command was sent and act accordingly
-        # get sockets which are ready to be read
-        sck_read,sck_write,sck_err = select.select(READ_CONNECTIONS,[],[])
-        for sock in sck_read :
-            # message from server
-            if (sock == conn) :
+# Initialize a socket
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.settimeout(2)
+
+# connect to remote host
+try :
+    server.connect((host, port))
+    socket_list = [sys.stdin, server]
+except :
+    print 'Unable to connect to the chat server at %s:%s.' % (host,port)
+    sys.exit()
+
+# Send the public key to the server
+send(server, pack(constants.FLAG_KEY_XCG, PUB_KEY))
+prompt()
+
+try :
+    packet = server.recv(constants.BUFFER_SIZE)
+except :
+    print 'Response from server timed out.'
+    sys.exit()
+    
+# Wait for the symmetric key from the server
+unpack(server, packet)
+if UID is not None :
+    output('\rConnected to the chat server.\n')
+    
+# Wrap the  unterminated loop in interrupt detection to safely terminate all connections
+try :
+    while True:
+
+        # Get the list sockets which are readable
+        read_sockets, write_sockets, error_sockets = select.select(socket_list , [], [])
+
+        for sock in read_sockets:
+            #incoming message from remote server
+            if sock == server:
                 data = sock.recv(constants.BUFFER_SIZE)
-                if data : # disconnected from server
-                    unpack(data)
-            # User entered message
-            else :
-                message = sys.stdin.readline().strip()
-                if (message.split()[0] == "/connect") :
-                    if len(message.split()) != 2 :
-                        print ("Usage: '/connect <ip/hostname>'")
-                        print ("\tex: /connect 123.456.789.0")
-                        continue
-                    if conn is not None :
-                        print ("Connection already established. Cannot connect to another server.")
-                        continue
-
-                    # Attempt to connect to the specified port
-                    connection = connect(message.split()[1], constants.DEFAULT_PORT)
-                    if (connection['code'] == 1) :
-                        continue 
-                    else : # connection has been established
-                        conn = connection['conn']
-                        READ_CONNECTIONS.append(conn)
-                        conn.send(pack(constants.FLAG_KEY_XCG, publicKey))
-                elif (message == "/quit") :
-                    if conn is not None :
-                        conn.send(pack(constants.FLAG_DISCONNECT, None)) 
-                        disconnect()
-                    quit = 1
-                    break
-                elif (message == "/help") :
-                    print ("\n/connect <ip/hostname> : connect to a server running at the provided ip/hostname")
-                    print ("/disconnect : disconnect from a server without exiting the NEC")
-                    print ("/quit : quit the NEC")
-                    print ("/setname <name> : Set your name to something other than the default.\n")
-                elif (message == "/disconnect") :
-                    if conn is not None :
-                        conn.send(pack(constants.FLAG_DISCONNECT, None)) 
-                        disconnect()
-                    else :
-                        print ("You are not currently connected to a server.")
-                elif (message.split()[0] == "/setname") :
-                    if len(message.split()) == 2 :
-                        tempName = message.split()[1]
-                        if len(tempName) >= constants.USERNAME_LENGTH_MIN and len(tempName) <= constants.USERNAME_LENGTH_MAX :
-                            name = tempName
-                        else :
-                            print ("Username must be between " + constants.USERNAME_LENGTH_MIN + " and " + constants.USERNAME_LENGTH_MAX + " characters long.")
-                    else :
-                        name = None
+                if not data :
+                    print '\nYou have been disconnected from the chat server.'
+                    sys.exit()
                 else :
-                    if conn is not None :
-                        conn.send(pack(constants.FLAG_MESSAGE, message))
-                    else:
-                        print ("Use '/help' to see a list of commands.")
-        
-except KeyboardInterrupt:
-    print ("\nPressed Ctrl + c")
+                    # unpack the packet and print the message
+                    unpack(sock, data)
 
-print ("Goodbye.")
-sys.exit()
+            #user entered a message
+            else :
+                message = sys.stdin.readline()
+                send(server, pack(constants.FLAG_MESSAGE, message))
+                prompt()
+except KeyboardInterrupt :
+    sys.stdout.flush()
+    print '\nPressed Ctrl + c'
+finally :
+    send(server, pack(constants.FLAG_DISCONNECT, None))
+    server.close()
 
+print 'Goodbye.'
+sys.exit(0)
