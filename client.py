@@ -63,6 +63,8 @@ def unpack(conn, packet) :
         conn.close()
         print '\nChat server has terminated.'
         sys.exit()
+    elif flag == constants.FLAG_SET_USERNAME :
+        output("\r%s\n" % message)
     else :
         raise ValueError('Cannot unpack packet. Packet may have been corrupted. Invalid flag: %s' % str(flag))
 

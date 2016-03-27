@@ -34,6 +34,7 @@ def broadcast (sock, message) :
 # Disconnect   : identity = username, message = none
 # Termination  : identity = none, message = none
 # Message      : identity = username, message = message
+# Set username : identity = none, message = "username_old -> username_new"
 def pack(flag, identity, message) :
     packet = struct.pack(">I", flag)
     if flag == constants.FLAG_KEY_XCG :
@@ -46,6 +47,8 @@ def pack(flag, identity, message) :
         packet = packet
     elif flag == constants.FLAG_MESSAGE :
         packet = packet + identity.rjust(constants.USERNAME_LENGTH_MAX).encode() + message.encode()
+    elif flag == constants.FLAG_SET_USERNAME :
+        packet = packet + message.encode()
     else :
         raise ValueError('Cannot pack message. Invalid flag: ' + str(flag))
     return packet
@@ -54,6 +57,7 @@ def pack(flag, identity, message) :
 # Key exchange : user specific pub_key is stored
 # Disconnect   : disconnect message output to stdout and broadcast to all clients
 # Message      : message broadcast to all clients
+# Set username : Set username of client specified by conn
 def unpack(conn, packet) :
     flag, = struct.unpack(">I", packet[0:4])
     message = packet[4:len(packet)]
@@ -68,10 +72,12 @@ def unpack(conn, packet) :
         broadcast(conn, pack(constants.FLAG_MESSAGE, currClient.username, message[constants.UID_LENGTH:len(message)]))
     elif flag == constants.FLAG_SET_USERNAME :
         pusername = message[constants.UID_LENGTH:len(message)]
+        oldusername = currClient.username
         if len(pusername) == 0 :
             currClient.username = "Guest%s" % currClient.uid
         else :
             currClient.username = pusername
+        broadcast(conn, pack(constants.FLAG_SET_USERNAME, None, "%s -> %s" % (oldusername,pusername)))
     else :
         raise ValueError('Cannot unpack packet. Packet may have been corrupted. Invalid flag: ' + str(flag))
 
