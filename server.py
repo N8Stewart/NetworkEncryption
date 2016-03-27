@@ -12,8 +12,9 @@ import struct
 
 # Class to store important information about the clients connected to the server
 class client(object) :
-    def __init__(self, uid, publicKey) :
+    def __init__(self, uid, username, publicKey) :
         self.uid = uid
+        self.username = username
         self.publicKey = publicKey
 
 #Function to broadcast chat messages to all connected clients
@@ -28,18 +29,23 @@ def broadcast (sock, message) :
                 disconnect(socket)
                              
 # Server pack method.
-# Key exchange : uid = uid, message = symmetric key
-# Connect      : uid = uid, message = none
-def pack(flag, uid, message) :
+# Key exchange : identity = uid, message = symmetric key
+# Connect      : identity = username, message = none
+# Disconnect   : identity = username, message = none
+# Termination  : identity = none, message = none
+# Message      : identity = username, message = message
+def pack(flag, identity, message) :
     packet = struct.pack(">I", flag)
     if flag == constants.FLAG_KEY_XCG :
-        packet = packet + uid.encode() + message.encode()
+        packet = packet + identity.encode() + message.encode()
     elif flag == constants.FLAG_CONNECT :
-        packet = packet + uid.encode()
+        packet = packet + identity.rjust(constants.USERNAME_LENGTH_MAX).encode()
     elif flag == constants.FLAG_DISCONNECT :
-        packet = packet + uid.encode()
+        packet = packet + identity.rjust(constants.USERNAME_LENGTH_MAX).encode()
     elif flag == constants.FLAG_SERVER_TERMINATION :
         packet = packet
+    elif flag == constants.FLAG_MESSAGE :
+        packet = packet + identity.rjust(constants.USERNAME_LENGTH_MAX).encode() + message.encode()
     else :
         raise ValueError('Cannot pack message. Invalid flag: ' + str(flag))
     return packet
@@ -51,18 +57,15 @@ def pack(flag, uid, message) :
 def unpack(conn, packet) :
     flag, = struct.unpack(">I", packet[0:4])
     message = packet[4:len(packet)]
-    client = CLIENTS[CONNECTIONS.index(conn)]
+    currClient = CLIENTS[CONNECTIONS.index(conn)]
     if flag == constants.FLAG_KEY_XCG :
         pub_key = message[0:len(message)]
         client.publicKey = pub_key
-        conn.send(pack(constants.FLAG_KEY_XCG, client.uid, SYM_KEY))
+        conn.send(pack(constants.FLAG_KEY_XCG, currClient.uid, SYM_KEY))
     elif flag == constants.FLAG_DISCONNECT :
-        puid = message[0:constants.UID_LENGTH]
-        print 'Client %s ' % puid + "has disconnected from the chat"
-        broadcast(conn, packet)
         disconnect(conn)
     elif flag == constants.FLAG_MESSAGE :
-        broadcast(conn, packet)
+        broadcast(conn, pack(constants.FLAG_MESSAGE, currClient.username, message[constants.UID_LENGTH:len(message)]))
     else :
         raise ValueError('Cannot unpack packet. Packet may have been corrupted. Invalid flag: ' + str(flag))
 
@@ -70,6 +73,9 @@ def unpack(conn, packet) :
 def disconnect(conn) :
     global CLIENTS
     global CONNECTIONS
+    currClient = CLIENTS[CONNECTIONS.index(conn)]
+    print 'Client %s ' % currClient.uid + " has disconnected from the chat"
+    broadcast(conn, pack(constants.FLAG_DISCONNECT, currClient.username, None))
     conn.close()
     del CLIENTS[CONNECTIONS.index(conn)]
     CONNECTIONS.remove(conn)
@@ -115,16 +121,17 @@ try :
                 newSock, newAddr = server_socket.accept()
                 CONNECTIONS.append(newSock)
                 newUID = str(randint(10**(constants.UID_LENGTH - 1), 10**constants.UID_LENGTH - 1)) 
-                newClient = client(newUID, None)
+                newUsername = "Guest%s" % newUID
+                newClient = client(newUID, newUsername, None)
                 CLIENTS.append(newClient)
-                broadcast(newSock, pack(constants.FLAG_CONNECT, newUID, None))
+                broadcast(newSock, pack(constants.FLAG_CONNECT, newUsername, None))
                 print ("Client (%s:%s) connected" % newAddr + " | Assigned uid: %s" % newUID)
 
             #Some incoming message from a client
             else:
                 # Data recieved from client, process it
                 try:
-                    clientUID = CLIENTS[CONNECTIONS.index(sock)].uid
+                    currClient = CLIENTS[CONNECTIONS.index(sock)]
                     #In Windows, sometimes when a TCP program closes abruptly,
                     # a "Connection reset by peer" exception will be thrown
                     data = sock.recv(constants.BUFFER_SIZE)
@@ -132,12 +139,9 @@ try :
                         unpack(sock, data)   
 
                 except:
-                    broadcast(newSock, pack(constants.FLAG_DISCONNECT, clientUID, None))
-                    print "Client <%s> has disconnected from the chat" % clientUID
                     disconnect(sock)
                     continue
 
-    server_socket.close()
 except KeyboardInterrupt :
     print '\nPressed Ctrl + c'
 finally :

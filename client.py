@@ -41,21 +41,20 @@ def unpack(conn, packet) :
     global SYM_KEY
     flag, = struct.unpack(">I", packet[0:4])
     message = packet[4:len(packet)]
-    #print "packet: %s" % packet + " with flag: %s" % flag + " results in message: %s" % message
     if flag == constants.FLAG_KEY_XCG :
         UID = message[0:constants.UID_LENGTH]
         SYM_KEY = message[constants.UID_LENGTH:len(message)]
     elif flag == constants.FLAG_CONNECT :
-        puid = message[0:constants.UID_LENGTH]
-        message = "\r" + "<%s> " % puid + " has connected to the chat.\n"
+        currUsername = message[0:constants.USERNAME_LENGTH_MAX].strip()
+        message = "\r%s has connected to the chat.\n" % currUsername
         output(message)
     elif flag == constants.FLAG_DISCONNECT :
-        puid = message[0:constants.UID_LENGTH]
-        message = "\r" + "<%s> " % puid + " has disconnected from the chat.\n"
+        currUsername = message[0:constants.USERNAME_LENGTH_MAX].strip()
+        message = "\r%s has disconnected from the chat.\n" % currUsername
         output(message)
     elif flag == constants.FLAG_MESSAGE :
-        puid = message[0:constants.UID_LENGTH]
-        message = "\r" + "<%s> " % puid + message[constants.UID_LENGTH:len(message)]
+        currUsername = message[0:constants.USERNAME_LENGTH_MAX].strip()
+        message = "\r%s: %s" % (currUsername,message[constants.USERNAME_LENGTH_MAX:len(message)])
         output(message)
     elif flag == constants.FLAG_SERVER_TERMINATION :
         conn.close()
@@ -139,12 +138,11 @@ try :
             if sock == server:
                 data = sock.recv(constants.BUFFER_SIZE)
                 if not data :
-                    print '\nYou have been disconnected from the chat server.'
+                    print 'Disconnected from chat server.\n'
                     sys.exit()
-                else :
-                    # unpack the packet and print the message
-                    unpack(sock, data)
-
+                    #sys.exit()
+                # unpack the packet and print the message
+                unpack(sock, data)
             #user entered a message
             else :
                 message = sys.stdin.readline()
