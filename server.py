@@ -66,6 +66,12 @@ def unpack(conn, packet) :
         disconnect(conn)
     elif flag == constants.FLAG_MESSAGE :
         broadcast(conn, pack(constants.FLAG_MESSAGE, currClient.username, message[constants.UID_LENGTH:len(message)]))
+    elif flag == constants.FLAG_SET_USERNAME :
+        pusername = message[constants.UID_LENGTH:len(message)]
+        if len(pusername) == 0 :
+            currClient.username = "Guest%s" % currClient.uid
+        else :
+            currClient.username = pusername
     else :
         raise ValueError('Cannot unpack packet. Packet may have been corrupted. Invalid flag: ' + str(flag))
 

@@ -12,6 +12,7 @@ import struct
 UID = None
 PUB_KEY = "8888888888"
 SYM_KEY = None
+USERNAME = None
 
 # Client pack method. 
 # Key exchange : uid = none, message = none
@@ -26,6 +27,8 @@ def pack(flag, message) :
     elif flag == constants.FLAG_DISCONNECT :
         packet = packet + UID.encode()
     elif flag == constants.FLAG_MESSAGE :
+        packet = packet + UID.encode() + message.encode()
+    elif flag == constants.FLAG_SET_USERNAME :
         packet = packet + UID.encode() + message.encode()
     else :
         raise ValueError('Cannot pack message. Invalid flag: ' + str(flag))
@@ -77,13 +80,60 @@ def send(socket, message) :
         socket.close()
         print '\nYou have been disconnected from the chat server.'
         sys.exit()
-    
 
 # Print the prompt and flush the stream
 def prompt() :
     sys.stdout.write('<%s> ' % constants.DEFAULT_PROMPT)
     sys.stdout.flush()
  
+# Connect to the provided host:port tuple
+def connect(host, port) :
+    # Initialize a socket
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.settimeout(2)
+
+    # connect to remote host
+    try :
+        server.connect((host, port))
+    except :
+        print 'Unable to connect to the chat server at %s:%s.' % (host,port)
+        sys.exit()
+
+    # Send the public key to the server
+    send(server, pack(constants.FLAG_KEY_XCG, PUB_KEY))
+
+    try :
+        packet = server.recv(constants.BUFFER_SIZE)
+    except :
+        print 'Response from server timed out.'
+        sys.exit()
+
+    # Wait for the symmetric key from the server
+    unpack(server, packet)
+    if UID is not None :
+        output('\rConnected to the chat server.\n')
+    
+    return server
+    
+def filterInput(server, message) :
+    global USERNAME
+    # If user is changing their name
+    if message.split()[0] == "/setname" :
+        if len(message.split()) == 2 :
+            tempName = message.split()[1].strip()
+            if len(tempName) >= constants.USERNAME_LENGTH_MIN and len(tempName) <= constants.USERNAME_LENGTH_MAX :
+                USERNAME = tempName
+                send(server, pack(constants.FLAG_SET_USERNAME, USERNAME))
+            else :
+                print "Username must be between %d and %d characters long." % (constants.USERNAME_LENGTH_MIN,constants.USERNAME_LENGTH_MAX)
+        else :
+            print "Setting username to default."
+            USERNAME = None
+            send(server, pack(constants.FLAG_SET_USERNAME, ""))
+    else :
+        send(server, pack(constants.FLAG_MESSAGE, message))
+    prompt()
+    
 # Prevent the client from being started from an embed.
 if __name__ != "__main__" :
     print ("Client cannot be embeded.")
@@ -99,32 +149,8 @@ else :
     port = int(sys.argv[2])
 host = sys.argv[1]
 
-# Initialize a socket
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.settimeout(2)
-
-# connect to remote host
-try :
-    server.connect((host, port))
-    socket_list = [sys.stdin, server]
-except :
-    print 'Unable to connect to the chat server at %s:%s.' % (host,port)
-    sys.exit()
-
-# Send the public key to the server
-send(server, pack(constants.FLAG_KEY_XCG, PUB_KEY))
-prompt()
-
-try :
-    packet = server.recv(constants.BUFFER_SIZE)
-except :
-    print 'Response from server timed out.'
-    sys.exit()
-    
-# Wait for the symmetric key from the server
-unpack(server, packet)
-if UID is not None :
-    output('\rConnected to the chat server.\n')
+server = connect(host, port)
+socket_list = [sys.stdin, server]
     
 # Wrap the  unterminated loop in interrupt detection to safely terminate all connections
 try :
@@ -140,14 +166,11 @@ try :
                 if not data :
                     print 'Disconnected from chat server.\n'
                     sys.exit()
-                    #sys.exit()
                 # unpack the packet and print the message
                 unpack(sock, data)
             #user entered a message
             else :
-                message = sys.stdin.readline()
-                send(server, pack(constants.FLAG_MESSAGE, message))
-                prompt()
+                filterInput(server, sys.stdin.readline())
 except KeyboardInterrupt :
     sys.stdout.flush()
     print '\nPressed Ctrl + c'
