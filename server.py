@@ -5,7 +5,7 @@
 import socket, select, sys
 # Import constants file
 import constants
-# Grab a random number generator for the uid's
+# Grab a random number generator for the uid's and keys
 from random import randint
 # Used in packing the packets
 import struct
@@ -36,9 +36,9 @@ def broadcast (sock, message) :
 # Message      : identity = username, message = message
 # Set username : identity = none, message = "username_old -> username_new"
 def pack(flag, identity, message) :
-    packet = struct.pack(">I", flag)
+    packet = struct.pack(">B", flag)
     if flag == constants.FLAG_KEY_XCG :
-        packet = packet + identity.encode() + message.encode()
+        packet = packet + identity.encode() + struct.pack(">B", SYM_KEY)
     elif flag == constants.FLAG_CONNECT :
         packet = packet + identity.rjust(constants.USERNAME_LENGTH_MAX).encode()
     elif flag == constants.FLAG_DISCONNECT :
@@ -59,11 +59,12 @@ def pack(flag, identity, message) :
 # Message      : message broadcast to all clients
 # Set username : Set username of client specified by conn
 def unpack(conn, packet) :
-    flag, = struct.unpack(">I", packet[0:4])
-    message = packet[4:len(packet)]
+    flag, = struct.unpack(">B", packet[0:1])
+    message = packet[1:len(packet)]
     currClient = CLIENTS[CONNECTIONS.index(conn)]
     if flag == constants.FLAG_KEY_XCG :
-        pub_key = message[0:len(message)]
+        pub_key, = struct.unpack(">B", message[0:len(message)])
+        print "pub_key = " + str(pub_key)
         client.publicKey = pub_key
         conn.send(pack(constants.FLAG_KEY_XCG, currClient.uid, SYM_KEY))
     elif flag == constants.FLAG_DISCONNECT :
@@ -107,7 +108,7 @@ CONNECTIONS = []
 # A list of the clients currently connected to the server, indexed to match the read_connections
 CLIENTS = []
 # The symmetric key generated every time the server opens up
-SYM_KEY = "1234567890"
+SYM_KEY = randint(constants.SYMMETRIC_KEY_MIN, constants.SYMMETRIC_KEY_MAX)
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

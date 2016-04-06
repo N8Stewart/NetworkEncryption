@@ -7,12 +7,8 @@ import socket, select, string, sys
 import constants
 # Used in packing the packets
 import struct
-
-# Declare the global variables
-UID = None
-PUB_KEY = "8888888888"
-SYM_KEY = None
-USERNAME = None
+# import key generation
+from random import randint
 
 # Client pack method. 
 # Key exchange : uid = none, message = none
@@ -21,9 +17,9 @@ USERNAME = None
 def pack(flag, message) :
     global UID
     global PUB_KEY
-    packet = struct.pack(">I", flag)
+    packet = struct.pack(">B", flag)
     if flag == constants.FLAG_KEY_XCG :
-        packet = packet + PUB_KEY.encode()
+        packet = packet + struct.pack(">B", PUB_KEY)
     elif flag == constants.FLAG_DISCONNECT :
         packet = packet + UID.encode()
     elif flag == constants.FLAG_MESSAGE :
@@ -42,11 +38,12 @@ def pack(flag, message) :
 def unpack(conn, packet) :
     global UID
     global SYM_KEY
-    flag, = struct.unpack(">I", packet[0:4])
-    message = packet[4:len(packet)]
+    flag, = struct.unpack(">B", packet[0:1])
+    message = packet[1:len(packet)]
     if flag == constants.FLAG_KEY_XCG :
         UID = message[0:constants.UID_LENGTH]
-        SYM_KEY = message[constants.UID_LENGTH:len(message)]
+        SYM_KEY, = struct.unpack(">B", message[constants.UID_LENGTH:len(message)])
+        print "SYM_KEY = " + str(SYM_KEY)
     elif flag == constants.FLAG_CONNECT :
         currUsername = message[0:constants.USERNAME_LENGTH_MAX].strip()
         message = "\r%s has connected to the chat.\n" % currUsername
@@ -141,6 +138,12 @@ if __name__ != "__main__" :
     print ("Client cannot be embeded.")
     sys.exit(1)
 
+# Declare the global variables
+UID = None
+PUB_KEY = randint(constants.PRIVATE_KEY_MIN, constants.PRIVATE_KEY_MAX)
+SYM_KEY = None
+USERNAME = None
+    
 # Grab host and port
 if(len(sys.argv) < 2) :
     print 'Usage:\tpython client.py hostname [port]'
