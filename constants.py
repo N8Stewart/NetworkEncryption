@@ -19,12 +19,9 @@ USERNAME_LENGTH_MAX = 16
 UID_LENGTH = 8 
 # The common modulo value for all public/private interactions
 COMMON_MODULO = 256
-# Max and min values for the private key
-PRIVATE_KEY_MIN = 1
-PRIVATE_KEY_MAX = 255
-# Max and min values for the symmetric key
-SYMMETRIC_KEY_MIN = 1
-SYMMETRIC_KEY_MAX = 255
+# Max and min values for the keys
+KEY_SIZE_MIN = 1
+KEY_SIZE_MAX = 255
 
 # **** Flags for message headers ****
 FLAG_KEY_XCG = 1

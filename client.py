@@ -9,6 +9,41 @@ import constants
 import struct
 # import key generation
 from random import randint
+# Import numpy for vectorized math
+import numpy as np
+
+# Encipher the message with the provided key.
+# Return the enciphered message as a string of bytes
+def encrypt(message, key) :
+    # Split the message into an array of characters. Encrypt those characters using given key and modulo
+    charArray = (np.array([ord(c) for c in message]) + key) % constants.COMMON_MODULO
+    # Setup a byte format and pack the character array into a byte array
+    byteFmt = ">%dI" % len(charArray)
+    byteArray = struct.pack(byteFmt, *charArray)
+    
+    return byteArray
+
+# Decipher the message which has been enciphered using the user's public key
+# Return the deciphered message as a string of characters
+def decryptRSA(message) :
+    global PRI_KEY
+    # Setup the format needed to decipher the string of bytes
+    byteFmt = ">%dI" % (len(message) // 4)
+    # Grab an array of unencrypted characters from the unpacked byte array
+    charArray = (np.array(struct.unpack(byteFmt, message)) + PRI_KEY) % constants.COMMON_MODULO
+    # Convert characters into a string and return
+    return ''.join([chr(i) for i in charArray])
+
+# Decipher the message which has been enciphered using the symmetric key
+# Return the deciphered message as a string of characters
+def decryptAES(message) :
+    global SYM_KEY
+    # Setup the format needed to decipher the string of bytes
+    byteFmt = ">%dI" % (len(message) // 4)
+    # Grab an array of unencrypted characters from the unpacked byte array
+    charArray = (np.array(struct.unpack(byteFmt, message)) - SYM_KEY) % constants.COMMON_MODULO
+    # Convert characters into a string and return
+    return ''.join([chr(i) for i in charArray])
 
 # Client pack method. 
 # Key exchange : uid = none, message = none
@@ -19,7 +54,7 @@ def pack(flag, message) :
     global PUB_KEY
     packet = struct.pack(">B", flag)
     if flag == constants.FLAG_KEY_XCG :
-        packet = packet + struct.pack(">B", PUB_KEY)
+        packet = packet + struct.pack(">I", PUB_KEY)
     elif flag == constants.FLAG_DISCONNECT :
         packet = packet + UID.encode()
     elif flag == constants.FLAG_MESSAGE :
@@ -41,8 +76,9 @@ def unpack(conn, packet) :
     flag, = struct.unpack(">B", packet[0:1])
     message = packet[1:len(packet)]
     if flag == constants.FLAG_KEY_XCG :
+        message = decryptRSA(message)
         UID = message[0:constants.UID_LENGTH]
-        SYM_KEY, = struct.unpack(">B", message[constants.UID_LENGTH:len(message)])
+        SYM_KEY = int(message[constants.UID_LENGTH:len(message)])
         print "SYM_KEY = " + str(SYM_KEY)
     elif flag == constants.FLAG_CONNECT :
         currUsername = message[0:constants.USERNAME_LENGTH_MAX].strip()
@@ -140,7 +176,8 @@ if __name__ != "__main__" :
 
 # Declare the global variables
 UID = None
-PUB_KEY = randint(constants.PRIVATE_KEY_MIN, constants.PRIVATE_KEY_MAX)
+PUB_KEY = randint(constants.KEY_SIZE_MIN, constants.KEY_SIZE_MAX)
+PRI_KEY = constants.COMMON_MODULO - PUB_KEY
 SYM_KEY = None
 USERNAME = None
     

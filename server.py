@@ -9,6 +9,8 @@ import constants
 from random import randint
 # Used in packing the packets
 import struct
+# Import numpy for vectorized math
+import numpy as np
 
 # Class to store important information about the clients connected to the server
 class client(object) :
@@ -27,7 +29,28 @@ def broadcast (sock, message) :
             except :
                 # broken socket connection may be, chat client pressed ctrl+c for example
                 disconnect(socket)
-                             
+
+# Encipher the message with the provided key.
+# Return the enciphered message as a string of bytes
+def encrypt(message, key) :
+    # Split the message into an array of characters. Encrypt those characters using given key and modulo
+    charArray = (np.array([ord(c) for c in message]) + key) % constants.COMMON_MODULO
+    # Setup a byte format and pack the character array into a byte array
+    byteFmt = ">%dI" % len(charArray)
+    byteArray = struct.pack(byteFmt, *charArray)
+    
+    return byteArray
+
+# Decipher the message with the provided key.
+# Return the deciphered message as a string of characters
+def decrypt(message, key) :
+    # Setup the format needed to decipher the string of bytes
+    byteFmt = ">%dI" % (len(message) // 4)
+    # Grab an array of unencrypted characters from the unpacked byte array
+    charArray = (np.array(struct.unpack(byteFmt, message)) - key) % constants.COMMON_MODULO
+    # Convert characters into a string and return
+    return ''.join([chr(i) for i in charArray])
+    
 # Server pack method.
 # Key exchange : identity = uid, message = symmetric key
 # Connect      : identity = username, message = none
@@ -38,7 +61,7 @@ def broadcast (sock, message) :
 def pack(flag, identity, message) :
     packet = struct.pack(">B", flag)
     if flag == constants.FLAG_KEY_XCG :
-        packet = packet + identity.encode() + struct.pack(">B", SYM_KEY)
+        packet = packet + message # message has already been enciphered
     elif flag == constants.FLAG_CONNECT :
         packet = packet + identity.rjust(constants.USERNAME_LENGTH_MAX).encode()
     elif flag == constants.FLAG_DISCONNECT :
@@ -63,10 +86,11 @@ def unpack(conn, packet) :
     message = packet[1:len(packet)]
     currClient = CLIENTS[CONNECTIONS.index(conn)]
     if flag == constants.FLAG_KEY_XCG :
-        pub_key, = struct.unpack(">B", message[0:len(message)])
+        pub_key, = struct.unpack(">I", message[0:len(message)])
         print "pub_key = " + str(pub_key)
         client.publicKey = pub_key
-        conn.send(pack(constants.FLAG_KEY_XCG, currClient.uid, SYM_KEY))
+        message = currClient.uid + str(SYM_KEY)
+        conn.send(pack(constants.FLAG_KEY_XCG, None, encrypt(message, pub_key)))
     elif flag == constants.FLAG_DISCONNECT :
         disconnect(conn)
     elif flag == constants.FLAG_MESSAGE :
@@ -108,7 +132,7 @@ CONNECTIONS = []
 # A list of the clients currently connected to the server, indexed to match the read_connections
 CLIENTS = []
 # The symmetric key generated every time the server opens up
-SYM_KEY = randint(constants.SYMMETRIC_KEY_MIN, constants.SYMMETRIC_KEY_MAX)
+SYM_KEY = randint(constants.KEY_SIZE_MIN, constants.KEY_SIZE_MAX)
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
