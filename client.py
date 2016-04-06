@@ -52,15 +52,16 @@ def decryptAES(message) :
 def pack(flag, message) :
     global UID
     global PUB_KEY
+    global SYM_KEY
     packet = struct.pack(">B", flag)
     if flag == constants.FLAG_KEY_XCG :
         packet = packet + struct.pack(">I", PUB_KEY)
     elif flag == constants.FLAG_DISCONNECT :
-        packet = packet + UID.encode()
+        packet = packet + encrypt(UID, SYM_KEY)
     elif flag == constants.FLAG_MESSAGE :
-        packet = packet + UID.encode() + message.encode()
+        packet = packet + encrypt(UID + message, SYM_KEY)
     elif flag == constants.FLAG_SET_USERNAME :
-        packet = packet + UID.encode() + message.encode()
+        packet = packet + encrypt(UID + message, SYM_KEY)
     else :
         raise ValueError('Cannot pack message. Invalid flag: ' + str(flag))
     return packet
@@ -79,16 +80,18 @@ def unpack(conn, packet) :
         message = decryptRSA(message)
         UID = message[0:constants.UID_LENGTH]
         SYM_KEY = int(message[constants.UID_LENGTH:len(message)])
-        print "SYM_KEY = " + str(SYM_KEY)
     elif flag == constants.FLAG_CONNECT :
+        message = decryptAES(message)
         currUsername = message[0:constants.USERNAME_LENGTH_MAX].strip()
         message = "\r%s has connected to the chat.\n" % currUsername
         output(message)
     elif flag == constants.FLAG_DISCONNECT :
+        message = decryptAES(message)
         currUsername = message[0:constants.USERNAME_LENGTH_MAX].strip()
         message = "\r%s has disconnected from the chat.\n" % currUsername
         output(message)
     elif flag == constants.FLAG_MESSAGE :
+        message = decryptAES(message)
         currUsername = message[0:constants.USERNAME_LENGTH_MAX].strip()
         message = "\r%s: %s" % (currUsername,message[constants.USERNAME_LENGTH_MAX:len(message)])
         output(message)
@@ -97,6 +100,7 @@ def unpack(conn, packet) :
         print '\nChat server has terminated.'
         sys.exit()
     elif flag == constants.FLAG_SET_USERNAME :
+        message = decryptAES(message)
         output("\r%s\n" % message)
     else :
         raise ValueError('Cannot unpack packet. Packet may have been corrupted. Invalid flag: %s' % str(flag))

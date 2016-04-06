@@ -41,13 +41,14 @@ def encrypt(message, key) :
     
     return byteArray
 
-# Decipher the message with the provided key.
+# Decipher the message with the symmetric key.
 # Return the deciphered message as a string of characters
-def decrypt(message, key) :
+def decrypt(message) :
+    global SYM_KEY
     # Setup the format needed to decipher the string of bytes
     byteFmt = ">%dI" % (len(message) // 4)
     # Grab an array of unencrypted characters from the unpacked byte array
-    charArray = (np.array(struct.unpack(byteFmt, message)) - key) % constants.COMMON_MODULO
+    charArray = (np.array(struct.unpack(byteFmt, message)) - SYM_KEY) % constants.COMMON_MODULO
     # Convert characters into a string and return
     return ''.join([chr(i) for i in charArray])
     
@@ -59,19 +60,20 @@ def decrypt(message, key) :
 # Message      : identity = username, message = message
 # Set username : identity = none, message = "username_old -> username_new"
 def pack(flag, identity, message) :
+    global SYM_KEY
     packet = struct.pack(">B", flag)
     if flag == constants.FLAG_KEY_XCG :
         packet = packet + message # message has already been enciphered
     elif flag == constants.FLAG_CONNECT :
-        packet = packet + identity.rjust(constants.USERNAME_LENGTH_MAX).encode()
+        packet = packet + encrypt(identity.rjust(constants.USERNAME_LENGTH_MAX), SYM_KEY)
     elif flag == constants.FLAG_DISCONNECT :
-        packet = packet + identity.rjust(constants.USERNAME_LENGTH_MAX).encode()
+        packet = packet + encrypt(identity.rjust(constants.USERNAME_LENGTH_MAX), SYM_KEY)
     elif flag == constants.FLAG_SERVER_TERMINATION :
         packet = packet
     elif flag == constants.FLAG_MESSAGE :
-        packet = packet + identity.rjust(constants.USERNAME_LENGTH_MAX).encode() + message.encode()
+        packet = packet + encrypt(identity.rjust(constants.USERNAME_LENGTH_MAX) + message, SYM_KEY)
     elif flag == constants.FLAG_SET_USERNAME :
-        packet = packet + message.encode()
+        packet = packet + encrypt(message, SYM_KEY)
     else :
         raise ValueError('Cannot pack message. Invalid flag: ' + str(flag))
     return packet
@@ -87,15 +89,16 @@ def unpack(conn, packet) :
     currClient = CLIENTS[CONNECTIONS.index(conn)]
     if flag == constants.FLAG_KEY_XCG :
         pub_key, = struct.unpack(">I", message[0:len(message)])
-        print "pub_key = " + str(pub_key)
         client.publicKey = pub_key
         message = currClient.uid + str(SYM_KEY)
         conn.send(pack(constants.FLAG_KEY_XCG, None, encrypt(message, pub_key)))
     elif flag == constants.FLAG_DISCONNECT :
         disconnect(conn)
     elif flag == constants.FLAG_MESSAGE :
+        message = decrypt(message)
         broadcast(conn, pack(constants.FLAG_MESSAGE, currClient.username, message[constants.UID_LENGTH:len(message)]))
     elif flag == constants.FLAG_SET_USERNAME :
+        message = decrypt(message)
         pusername = message[constants.UID_LENGTH:len(message)]
         oldusername = currClient.username
         if len(pusername) == 0 :
