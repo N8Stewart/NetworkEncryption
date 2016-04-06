@@ -117,7 +117,7 @@ def disconnect(conn) :
     global CLIENTS
     global CONNECTIONS
     currClient = CLIENTS[CONNECTIONS.index(conn)]
-    print 'Client %s ' % currClient.uid + " has disconnected from the chat"
+    print 'Client %s' % currClient.uid + " has disconnected from the chat"
     broadcast(conn, pack(constants.FLAG_DISCONNECT, currClient.username, None))
     conn.close()
     del CLIENTS[CONNECTIONS.index(conn)]

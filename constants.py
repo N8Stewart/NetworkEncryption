@@ -18,7 +18,7 @@ USERNAME_LENGTH_MAX = 16
 # Length of the UID (min:10^(UID_LENGTH) | max:10^(UID_LENGTH + 1) - 1)
 UID_LENGTH = 8 
 # The common modulo value for all public/private interactions
-COMMON_MODULO = 787
+COMMON_MODULO = 2399
 # Max and min values for the keys
 KEY_SIZE_MIN = 65536
 KEY_SIZE_MAX = 524287
