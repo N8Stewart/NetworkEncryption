@@ -11,6 +11,8 @@ import struct
 from random import randint
 # Import numpy for vectorized math
 import numpy as np
+# Used in generating a key
+import math
 
 # Encipher the message with the provided key.
 # Return the enciphered message as a string of bytes
@@ -174,6 +176,20 @@ def filterInput(server, message) :
         send(server, pack(constants.FLAG_MESSAGE, message))
     prompt()
     
+# Generate a random prime number as the key
+def generateKey(startValue) :
+    
+    for num in range(startValue, constants.KEY_SIZE_MAX) :
+        prime = True
+        upperBound = int(round(math.sqrt(num)))
+        for i in range(2,upperBound) : 
+            if (num % i == 0) :
+                prime = False
+        if prime :
+           return num
+    # We never found a prime number
+    return generateKey(startValue/2)
+    
 # Prevent the client from being started from an embed.
 if __name__ != "__main__" :
     print ("Client cannot be embeded.")
@@ -181,7 +197,8 @@ if __name__ != "__main__" :
 
 # Declare the global variables
 UID = None
-PUB_KEY = randint(constants.KEY_SIZE_MIN, constants.KEY_SIZE_MAX)
+PUB_KEY = generateKey(randint(constants.KEY_SIZE_MIN, constants.KEY_SIZE_MAX))
+print PUB_KEY
 PRI_KEY = constants.COMMON_MODULO - PUB_KEY
 SYM_KEY = None
 USERNAME = None

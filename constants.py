@@ -11,17 +11,17 @@ DEFAULT_PORT = 5989
 # Name of the shell when no connection is established
 DEFAULT_PROMPT = "You"
 # Constant buffer size to use when reading and writing to buffer
-BUFFER_SIZE = 512
+BUFFER_SIZE = 4096
 # Max and min size of the username
 USERNAME_LENGTH_MIN = 3
 USERNAME_LENGTH_MAX = 16
 # Length of the UID (min:10^(UID_LENGTH) | max:10^(UID_LENGTH + 1) - 1)
 UID_LENGTH = 8 
 # The common modulo value for all public/private interactions
-COMMON_MODULO = 256
+COMMON_MODULO = 787
 # Max and min values for the keys
-KEY_SIZE_MIN = 1
-KEY_SIZE_MAX = 255
+KEY_SIZE_MIN = 65536
+KEY_SIZE_MAX = 524287
 
 # **** Flags for message headers ****
 FLAG_KEY_XCG = 1

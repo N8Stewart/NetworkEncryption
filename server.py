@@ -11,6 +11,8 @@ from random import randint
 import struct
 # Import numpy for vectorized math
 import numpy as np
+# Used in generating a key
+import math
 
 # Class to store important information about the clients connected to the server
 class client(object) :
@@ -121,6 +123,20 @@ def disconnect(conn) :
     del CLIENTS[CONNECTIONS.index(conn)]
     CONNECTIONS.remove(conn)
     
+# Generate a random prime number as the key
+def generateKey(startValue) :
+    
+    for num in range(startValue, constants.KEY_SIZE_MAX) :
+        prime = True
+        upperBound = int(round(math.sqrt(num)))
+        for i in range(2,upperBound) : 
+            if (num % i == 0) :
+                prime = False
+        if prime :
+           return num
+    # We never found a prime number
+    return generateKey(startValue/2)
+    
 # Prevent the server from being started from an embed
 if __name__ != "__main__" :
     print ("Server cannot be embeded.")
@@ -136,7 +152,8 @@ CONNECTIONS = []
 # A list of the clients currently connected to the server, indexed to match the read_connections
 CLIENTS = []
 # The symmetric key generated every time the server opens up
-SYM_KEY = randint(constants.KEY_SIZE_MIN, constants.KEY_SIZE_MAX)
+SYM_KEY = generateKey(randint(constants.KEY_SIZE_MIN, constants.KEY_SIZE_MAX))
+print SYM_KEY
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
