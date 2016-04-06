@@ -38,7 +38,7 @@ def encrypt(message, key) :
     # Split the message into an array of characters. Encrypt those characters using given key and modulo
     charArray = (np.array([ord(c) for c in message]) + key) % constants.COMMON_MODULO
     # Setup a byte format and pack the character array into a byte array
-    byteFmt = ">%dI" % len(charArray)
+    byteFmt = "<%di" % len(charArray)
     byteArray = struct.pack(byteFmt, *charArray)
     
     return byteArray
@@ -48,7 +48,7 @@ def encrypt(message, key) :
 def decrypt(message) :
     global SYM_KEY
     # Setup the format needed to decipher the string of bytes
-    byteFmt = ">%dI" % (len(message) // 4)
+    byteFmt = "<%di" % (len(message) // 4)
     # Grab an array of unencrypted characters from the unpacked byte array
     charArray = (np.array(struct.unpack(byteFmt, message)) - SYM_KEY) % constants.COMMON_MODULO
     # Convert characters into a string and return
@@ -63,7 +63,7 @@ def decrypt(message) :
 # Set username : identity = none, message = "username_old -> username_new"
 def pack(flag, identity, message) :
     global SYM_KEY
-    packet = struct.pack(">B", flag)
+    packet = struct.pack("<b", flag)
     if flag == constants.FLAG_KEY_XCG :
         packet = packet + message # message has already been enciphered
     elif flag == constants.FLAG_CONNECT :
@@ -87,11 +87,11 @@ def pack(flag, identity, message) :
 # Set username : Set username of client specified by conn
 def unpack(conn, packet) :
     #print repr(packet)
-    flag, = struct.unpack(">B", packet[0:1])
+    flag, = struct.unpack("<b", packet[0:1])
     message = packet[1:len(packet)]
     currClient = CLIENTS[CONNECTIONS.index(conn)]
     if flag == constants.FLAG_KEY_XCG :
-        pub_key, = struct.unpack(">I", message[0:len(message)])
+        pub_key, = struct.unpack("<i", message[0:len(message)])
         client.publicKey = pub_key
         message = currClient.uid + str(SYM_KEY)
         conn.send(pack(constants.FLAG_KEY_XCG, None, encrypt(message, pub_key)))
@@ -153,7 +153,6 @@ CONNECTIONS = []
 CLIENTS = []
 # The symmetric key generated every time the server opens up
 SYM_KEY = generateKey(randint(constants.KEY_SIZE_MIN, constants.KEY_SIZE_MAX))
-print SYM_KEY
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

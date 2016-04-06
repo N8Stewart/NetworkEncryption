@@ -20,7 +20,7 @@ def encrypt(message, key) :
     # Split the message into an array of characters. Encrypt those characters using given key and modulo
     charArray = (np.array([ord(c) for c in message]) + key) % constants.COMMON_MODULO
     # Setup a byte format and pack the character array into a byte array
-    byteFmt = ">%dI" % len(charArray)
+    byteFmt = "<%di" % len(charArray)
     byteArray = struct.pack(byteFmt, *charArray)
     
     return byteArray
@@ -30,7 +30,7 @@ def encrypt(message, key) :
 def decryptRSA(message) :
     global PRI_KEY
     # Setup the format needed to decipher the string of bytes
-    byteFmt = ">%dI" % (len(message) // 4)
+    byteFmt = "<%di" % (len(message) // 4)
     # Grab an array of unencrypted characters from the unpacked byte array
     charArray = (np.array(struct.unpack(byteFmt, message)) + PRI_KEY) % constants.COMMON_MODULO
     # Convert characters into a string and return
@@ -41,7 +41,7 @@ def decryptRSA(message) :
 def decryptAES(message) :
     global SYM_KEY
     # Setup the format needed to decipher the string of bytes
-    byteFmt = ">%dI" % (len(message) // 4)
+    byteFmt = "<%di" % (len(message) // 4)
     # Grab an array of unencrypted characters from the unpacked byte array
     charArray = (np.array(struct.unpack(byteFmt, message)) - SYM_KEY) % constants.COMMON_MODULO
     # Convert characters into a string and return
@@ -55,9 +55,9 @@ def pack(flag, message) :
     global UID
     global PUB_KEY
     global SYM_KEY
-    packet = struct.pack(">B", flag)
+    packet = struct.pack("<b", flag)
     if flag == constants.FLAG_KEY_XCG :
-        packet = packet + struct.pack(">I", PUB_KEY)
+        packet = packet + struct.pack("<i", PUB_KEY)
     elif flag == constants.FLAG_DISCONNECT :
         packet = packet + encrypt(UID, SYM_KEY)
     elif flag == constants.FLAG_MESSAGE :
@@ -77,7 +77,7 @@ def unpack(conn, packet) :
     global UID
     global SYM_KEY
     #print repr(packet)
-    flag, = struct.unpack(">B", packet[0:1])
+    flag, = struct.unpack("<b", packet[0:1])
     message = packet[1:len(packet)]
     if flag == constants.FLAG_KEY_XCG :
         message = decryptRSA(message)
@@ -198,7 +198,6 @@ if __name__ != "__main__" :
 # Declare the global variables
 UID = None
 PUB_KEY = generateKey(randint(constants.KEY_SIZE_MIN, constants.KEY_SIZE_MAX))
-print PUB_KEY
 PRI_KEY = constants.COMMON_MODULO - PUB_KEY
 SYM_KEY = None
 USERNAME = None
