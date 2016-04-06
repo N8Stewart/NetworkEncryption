@@ -74,6 +74,7 @@ def pack(flag, message) :
 def unpack(conn, packet) :
     global UID
     global SYM_KEY
+    #print repr(packet)
     flag, = struct.unpack(">B", packet[0:1])
     message = packet[1:len(packet)]
     if flag == constants.FLAG_KEY_XCG :

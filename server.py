@@ -84,6 +84,7 @@ def pack(flag, identity, message) :
 # Message      : message broadcast to all clients
 # Set username : Set username of client specified by conn
 def unpack(conn, packet) :
+    #print repr(packet)
     flag, = struct.unpack(">B", packet[0:1])
     message = packet[1:len(packet)]
     currClient = CLIENTS[CONNECTIONS.index(conn)]
